@@ -44,12 +44,13 @@ flags.DEFINE_string('set', 'train', 'Convert training set, validation set or '
                     'merged set.')
 flags.DEFINE_string('annotations_dir', 'Annotations',
                     '(Relative) path to annotations directory.')
-flags.DEFINE_string('year', 'VOC2007', 'Desired challenge year.')
+flags.DEFINE_string('year', 'VOC2012', 'Desired challenge year.')
 flags.DEFINE_string('output_path', '', 'Path to output TFRecord')
 flags.DEFINE_string('label_map_path', 'data/pascal_label_map.pbtxt',
                     'Path to label map proto')
 flags.DEFINE_boolean('ignore_difficult_instances', False, 'Whether to ignore '
                      'difficult instances')
+flags.DEFINE_string('set_path', '', '')
 FLAGS = flags.FLAGS
 
 SETS = ['train', 'val', 'trainval', 'test']
@@ -82,8 +83,9 @@ def dict_to_tf_example(data,
   Raises:
     ValueError: if the image pointed to by data['filename'] is not a valid JPEG
   """
-  img_path = os.path.join(data['folder'], image_subdirectory, data['filename'])
-  full_path = os.path.join(dataset_directory, img_path)
+  img_path = os.path.join(dataset_directory, data['filename'])
+  full_path = os.path.join(img_path)
+  file = open(full_path, 'rb')
   with tf.gfile.GFile(full_path, 'rb') as fid:
     encoded_jpg = fid.read()
   encoded_jpg_io = io.BytesIO(encoded_jpg)
@@ -161,15 +163,14 @@ def main(_):
 
   for year in years:
     logging.info('Reading from PASCAL %s dataset.', year)
-    examples_path = os.path.join(data_dir, year, 'ImageSets', 'Main',
-                                 'aeroplane_' + FLAGS.set + '.txt')
-    annotations_dir = os.path.join(data_dir, year, FLAGS.annotations_dir)
+    examples_path = os.path.join(FLAGS.set_path)
+    annotations_dir = os.path.join(FLAGS.annotations_dir)
     examples_list = dataset_util.read_examples_list(examples_path)
     for idx, example in enumerate(examples_list):
       if idx % 100 == 0:
         logging.info('On image %d of %d', idx, len(examples_list))
-      path = os.path.join(annotations_dir, example + '.xml')
-      with tf.gfile.GFile(path, 'r') as fid:
+      path = os.path.join(annotations_dir, example.replace('.jpg', '.xml'))
+      with tf.gfile.GFile(path, 'rb') as fid:
         xml_str = fid.read()
       xml = etree.fromstring(xml_str)
       data = dataset_util.recursive_parse_xml_to_dict(xml)['annotation']
